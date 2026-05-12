@@ -6,23 +6,23 @@ const App = () => {
   const [gameActive, setGameActive] = useState(false);
   const [highScore, setHighScore] = useState(0);
 
-  // --- 絶対に変わらない「時間基準」の設定 ---
-  const SPEED_PER_SECOND = 80; // 1秒間に80ピクセル進む（超ゆっくり）
-  const MOVE_SPEED = 250;      // 1秒間に250ピクセル上下に動く
+  const SPEED_PER_SECOND = 80;
+  const MOVE_SPEED = 250;
   const PIPE_GAP = 280;
-  const SPAWN_INTERVAL = 2500; // 2.5秒ごとに土管を出す
-  const ITEM_INTERVAL = 1000;  // 1秒ごとにごはんを出す
+  const SPAWN_INTERVAL = 2500;
+  const ITEM_INTERVAL = 1000;
 
   const BIRD_WIDTH = 24;
   const BIRD_HEIGHT = 18;
-  
+
   const birdY = useRef(250);
   const pipes = useRef([]);
-  const items = useRef([]); 
+  const items = useRef([]);
   const lastTimeRef = useRef(0);
   const lastSpawnRef = useRef(0);
   const lastItemSpawnRef = useRef(0);
   const keysPressed = useRef({});
+  const requestRef = useRef(); // ループを管理するためのRef
 
   const startGame = () => {
     birdY.current = 250;
@@ -40,7 +40,7 @@ const App = () => {
       keysPressed.current[e.code] = true;
       if (!gameActive && (e.code === 'Space' || e.code === 'Enter')) startGame();
     };
-    const handleKeyUp = (e) => keysPressed.current[e.code] = false;
+    const handleKeyUp = (e) => (keysPressed.current[e.code] = false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
@@ -56,69 +56,69 @@ const App = () => {
     const ctx = canvas.getContext('2d');
 
     const loop = (currentTime) => {
-      if (!gameActive) return;
-
-      // 前回の描画からの経過時間（秒）を計算
+      // デルタタイムの計算
       const deltaTime = (currentTime - lastTimeRef.current) / 1000;
       lastTimeRef.current = currentTime;
 
-      // --- 移動の計算（経過時間に比例させるので、ずっと一定） ---
+      // 移動の計算
       if (keysPressed.current['ArrowUp']) birdY.current -= MOVE_SPEED * deltaTime;
       if (keysPressed.current['ArrowDown']) birdY.current += MOVE_SPEED * deltaTime;
 
       if (birdY.current < 0) birdY.current = 0;
       if (birdY.current > canvas.height - BIRD_HEIGHT) birdY.current = canvas.height - BIRD_HEIGHT;
 
-      // 土管生成の管理
+      // 土管生成
       if (currentTime - lastSpawnRef.current > SPAWN_INTERVAL) {
-        const pipeHeight = Math.random() * 100 + 40; 
+        const pipeHeight = Math.random() * 100 + 40;
         pipes.current.push({ x: canvas.width, top: pipeHeight });
         lastSpawnRef.current = currentTime;
       }
 
-      // ごはん生成の管理
+      // ごはん生成
       if (currentTime - lastItemSpawnRef.current > ITEM_INTERVAL) {
         items.current.push({ x: canvas.width, y: Math.random() * 300 + 50, collected: false });
         lastItemSpawnRef.current = currentTime;
       }
 
-      // 土管の移動（時間基準で一定）
+      // 移動と衝突判定
       pipes.current.forEach((pipe) => {
         pipe.x -= SPEED_PER_SECOND * deltaTime;
-        if (50 < pipe.x + 40 && 50 + BIRD_WIDTH > pipe.x &&
-            (birdY.current < pipe.top || birdY.current + BIRD_HEIGHT > pipe.top + PIPE_GAP)) {
+        if (
+          50 < pipe.x + 40 &&
+          50 + BIRD_WIDTH > pipe.x &&
+          (birdY.current < pipe.top || birdY.current + BIRD_HEIGHT > pipe.top + PIPE_GAP)
+        ) {
           setGameActive(false);
         }
       });
 
-      // ごはんの移動と獲得
       items.current.forEach((item) => {
         item.x -= SPEED_PER_SECOND * deltaTime;
         if (!item.collected && Math.abs(50 - item.x) < 25 && Math.abs(birdY.current - item.y) < 25) {
           item.collected = true;
           setScore((s) => {
             const nextScore = s + 10;
-            if (nextScore > highScore) setHighScore(nextScore);
+            // ハイスコア更新はここで行うが、useEffectを再起動させないためにstateを直接参照しない
+            setHighScore((prev) => (nextScore > prev ? nextScore : prev));
             return nextScore;
           });
         }
       });
 
-      // お掃除
-      pipes.current = pipes.current.filter(p => p.x > -50);
-      items.current = items.current.filter(i => i.x > -50);
+      pipes.current = pipes.current.filter((p) => p.x > -50);
+      items.current = items.current.filter((i) => i.x > -50);
 
       // 描画
       ctx.fillStyle = '#F0F8FF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#B0E57C';
-      pipes.current.forEach(p => {
+      pipes.current.forEach((p) => {
         ctx.fillRect(p.x, 0, 40, p.top);
         ctx.fillRect(p.x, p.top + PIPE_GAP, 40, canvas.height);
       });
-      items.current.forEach(i => {
+      items.current.forEach((i) => {
         if (!i.collected) {
-          ctx.fillStyle = '#FFA500'; 
+          ctx.fillStyle = '#FFA500';
           ctx.beginPath();
           ctx.ellipse(i.x, i.y, 8, 5, Math.PI / 4, 0, Math.PI * 2);
           ctx.fill();
@@ -129,16 +129,17 @@ const App = () => {
       ctx.fillStyle = '#fff700'; ctx.fillRect(bx + 10, by, 14, 10);
       ctx.fillStyle = '#000'; ctx.fillRect(bx + 18, by + 2, 2, 2);
 
-      requestAnimationFrame(loop);
+      // 次のフレームへ
+      requestRef.current = requestAnimationFrame(loop);
     };
 
-    requestAnimationFrame((t) => {
-      lastTimeRef.current = t;
-      lastSpawnRef.current = t;
-      lastItemSpawnRef.current = t;
-      loop(t);
-    });
-  }, [gameActive, highScore]);
+    // 初期化して開始
+    lastTimeRef.current = performance.now();
+    requestRef.current = requestAnimationFrame(loop);
+
+    // クリーンアップ: useEffectが再実行される前に古いループを止める
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [gameActive]); // highScore を依存配列から削除
 
   return (
     <div style={{ textAlign: 'center', backgroundColor: '#F0F8FF', minHeight: '100vh', color: '#333', userSelect: 'none' }}>
