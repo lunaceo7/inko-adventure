@@ -6,12 +6,12 @@ const App = () => {
   const [gameActive, setGameActive] = useState(false);
   const [highScore, setHighScore] = useState(0);
 
-  // --- 設定：ずっと同じスピード、上下キーで移動 ---
-  const PIPE_SPEED = 1.2;      // ずっとこの低速。何があっても早くなりません。
-  const MOVE_SPEED = 4;        // 上下キーを押した時の動く速さ
-  const PIPE_GAP = 280;        // 隙間はたっぷり
-  const SPAWN_RATE = 180;      // 土管の間隔
-  const ITEM_SPAWN_RATE = 60;  // ごはん（ひまわりの種）の頻度
+  // --- 設定：スピードは「1.2」で完全に固定 ---
+  const FIXED_SPEED = 1.2;     // 何があってもこの速さから変わりません。
+  const MOVE_SPEED = 4;        // 上下キーで動く速さ
+  const PIPE_GAP = 280;        // 土管の隙間
+  const SPAWN_RATE = 180;      // 土管が出る間隔
+  const ITEM_SPAWN_RATE = 70;  // ごはん（ひまわりの種）が出る間隔
 
   const BIRD_WIDTH = 24;
   const BIRD_HEIGHT = 18;
@@ -20,7 +20,7 @@ const App = () => {
   const pipes = useRef([]);
   const items = useRef([]); 
   const frame = useRef(0);
-  const keysPressed = useRef({}); // 押されているキーを管理
+  const keysPressed = useRef({});
 
   const startGame = () => {
     birdY.current = 250;
@@ -31,11 +31,9 @@ const App = () => {
     setGameActive(true);
   };
 
-  // キー入力を監視
   useEffect(() => {
     const handleKeyDown = (e) => {
       keysPressed.current[e.code] = true;
-      // スペースかエンターでスタート
       if (!gameActive && (e.code === 'Space' || e.code === 'Enter')) startGame();
     };
     const handleKeyUp = (e) => {
@@ -56,25 +54,21 @@ const App = () => {
     const ctx = canvas.getContext('2d');
 
     const update = () => {
-      // --- 上下キーによる移動（重力なし） ---
-      if (keysPressed.current['ArrowUp']) {
-        birdY.current -= MOVE_SPEED;
-      }
-      if (keysPressed.current['ArrowDown']) {
-        birdY.current += MOVE_SPEED;
-      }
+      // 上下キー移動
+      if (keysPressed.current['ArrowUp']) birdY.current -= MOVE_SPEED;
+      if (keysPressed.current['ArrowDown']) birdY.current += MOVE_SPEED;
 
-      // 画面端の制限
+      // 画面端制限
       if (birdY.current < 0) birdY.current = 0;
       if (birdY.current > canvas.height - BIRD_HEIGHT) birdY.current = canvas.height - BIRD_HEIGHT;
 
-      // 土管の生成
+      // 土管生成
       if (frame.current % SPAWN_RATE === 0) {
-        const pipeHeight = Math.random() * 80 + 40; 
+        const pipeHeight = Math.random() * 100 + 40; 
         pipes.current.push({ x: canvas.width, top: pipeHeight });
       }
 
-      // ごはん（ひまわりの種）の生成
+      // ごはん生成
       if (frame.current % ITEM_SPAWN_RATE === 0) {
         items.current.push({ 
           x: canvas.width, 
@@ -83,28 +77,27 @@ const App = () => {
         });
       }
 
-      // 土管の移動（等速）
+      // 土管の移動（FIXED_SPEEDで固定）
       pipes.current.forEach((pipe) => {
-        pipe.x -= PIPE_SPEED;
-        // 当たり判定
+        pipe.x -= FIXED_SPEED;
         if (50 + 5 < pipe.x + 40 && 50 + BIRD_WIDTH - 5 > pipe.x &&
             (birdY.current + 5 < pipe.top || birdY.current + BIRD_HEIGHT - 5 > pipe.top + PIPE_GAP)) {
           setGameActive(false);
         }
       });
 
-      // ごはんの移動と獲得
+      // ごはんの移動と獲得（ポイント追加のみ、速度変更なし）
       items.current.forEach((item) => {
-        item.x -= PIPE_SPEED;
-        // インコがごはんに触れた判定
+        item.x -= FIXED_SPEED;
         if (!item.collected && 
             Math.abs(50 - item.x) < 25 && 
             Math.abs(birdY.current - item.y) < 25) {
           item.collected = true;
+          // ここでスコアを増やすだけ。スピードには一切触れません。
           setScore((s) => {
-            const newScore = s + 10;
-            if (newScore > highScore) setHighScore(newScore);
-            return newScore;
+            const nextScore = s + 10;
+            if (nextScore > highScore) setHighScore(nextScore);
+            return nextScore;
           });
         }
       });
@@ -115,7 +108,6 @@ const App = () => {
     };
 
     const draw = () => {
-      // 背景
       ctx.fillStyle = '#F0F8FF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -136,7 +128,7 @@ const App = () => {
         }
       });
 
-      // インコ（セキセイインコ風）
+      // インコ
       const bx = 50;
       const by = birdY.current;
       ctx.fillStyle = '#4af14a';
@@ -158,10 +150,7 @@ const App = () => {
   }, [gameActive, highScore]);
 
   return (
-    <div style={{ 
-      textAlign: 'center', backgroundColor: '#F0F8FF', minHeight: '100vh', color: '#333', 
-      fontFamily: 'sans-serif', userSelect: 'none', touchAction: 'none'
-    }}>
+    <div style={{ textAlign: 'center', backgroundColor: '#F0F8FF', minHeight: '100vh', color: '#333', userSelect: 'none', touchAction: 'none' }}>
       <h2 style={{ paddingTop: '20px' }}>インコの「ごはん」あつめ</h2>
       <p>ハイスコア: {highScore} / ポイント: {score}</p>
       
@@ -169,14 +158,14 @@ const App = () => {
         <canvas ref={canvasRef} width="360" height="480" style={{ border: '10px solid #FFF', borderRadius: '30px', background: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }} />
         {!gameActive && (
           <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'white', padding: '30px', borderRadius: '20px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', width: '240px' }}>
-            <h3 style={{ margin: '0 0 10px 0' }}>お散歩にいこう！</h3>
+            <h3>お散歩にいこう！</h3>
             <button onClick={startGame} style={{ padding: '12px 40px', fontSize: '20px', borderRadius: '30px', border: 'none', background: '#4af14a', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>スタート</button>
           </div>
         )}
       </div>
       <div style={{ marginTop: '20px' }}>
-        <p>キーボードの <b>↑ ↓ ボタン</b> で移動できるよ！</p>
-        <p style={{ fontSize: '14px', color: '#888' }}>ごはんを食べてもスピードは変わらないから、安心してね。</p>
+        <p>キーボードの <b>↑ ↓ ボタン</b> で移動してね！</p>
+        <p>ごはんを何個食べても、ずっと同じゆっくりスピードだよ。</p>
       </div>
     </div>
   );
