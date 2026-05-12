@@ -6,17 +6,18 @@ const App = () => {
   const [gameActive, setGameActive] = useState(false);
   const [highScore, setHighScore] = useState(0);
 
-  // --- 「何もしなくても進める」ゆったり設定 ---
+  // --- スピードを「ずっと遅く」固定する設定 ---
+  const PIPE_SPEED = 1.2;      // ずっとこの低速で固定。急に早くなりません。
+  const FLOAT_STRENGTH = 0.05; // 真ん中に戻ろうとする力（自動浮遊）
+  const GRAVITY = 0.05;        // 重力をさらに弱く
+  const JUMP_STRENGTH = -3;    // タップした時の動きもさらに優しく
+
   const BIRD_WIDTH = 24;
   const BIRD_HEIGHT = 18;
-  const FLOAT_STRENGTH = 0.03; // ふわふわ浮く力（自動）
-  const GRAVITY = 0.1;         // 重力（極めて弱い）
-  const JUMP_STRENGTH = -3.5;  // ジャンプ（さらに優しく）
   const PIPE_WIDTH = 40;
-  const PIPE_GAP = 260;        // 隙間をさらに広く（画面の半分以上）
-  const PIPE_SPEED = 1.5;      // スピードを「お散歩」レベルに落とす
-  const SPAWN_RATE = 150;      // 土管の間隔をたっぷり空ける
-  const HIT_BOX_MARGIN = 12;   // 判定を最大級に甘く
+  const PIPE_GAP = 280;        // 隙間をさらに広げて、ほぼ当たらないように。
+  const SPAWN_RATE = 180;      // 土管が来る間隔を長くして、ゆったりさせます。
+  const HIT_BOX_MARGIN = 15;   // 判定を最大級に甘く（かすっても大丈夫）
 
   const birdY = useRef(250);
   const velocity = useRef(0);
@@ -56,23 +57,24 @@ const App = () => {
     const ctx = canvas.getContext('2d');
 
     const update = () => {
-      // --- 自動浮遊ロジック ---
-      // 何もしなくても画面の真ん中（250px）あたりに戻ろうとする力を加える
-      const diff = 250 - birdY.current;
+      // --- ずっと浮き続けるためのロジック ---
+      // 常に画面中央（250px）を目指してふわふわ動く
+      const centerTarget = 250;
+      const diff = centerTarget - birdY.current;
       velocity.current += diff * FLOAT_STRENGTH; 
       
       velocity.current += GRAVITY;
-      velocity.current *= 0.95; // 速度にブレーキをかけて動きを滑らかに
+      velocity.current *= 0.92; // 動きをマイルドにするブレーキ
       birdY.current += velocity.current;
 
+      // 土管の生成（常に同じスピードで迫る）
       if (frame.current % SPAWN_RATE === 0) {
-        // 土管の位置も、中央を通れば当たらないように調整
-        const pipeHeight = Math.random() * 100 + 20; 
+        const pipeHeight = Math.random() * 80 + 40; 
         pipes.current.push({ x: canvas.width, top: pipeHeight, passed: false });
       }
 
       pipes.current.forEach((pipe) => {
-        pipe.x -= PIPE_SPEED;
+        pipe.x -= PIPE_SPEED; // ここが一定なので急に早くなりません
 
         // 当たり判定
         const birdLeft = 50 + HIT_BOX_MARGIN;
@@ -85,6 +87,7 @@ const App = () => {
           birdLeft < pipe.x + PIPE_WIDTH &&
           (birdTop < pipe.top || birdBottom > pipe.top + PIPE_GAP)
         ) {
+          // 判定を甘くしているので、よほど外れない限りセーフ
           setGameActive(false);
         }
 
@@ -98,27 +101,20 @@ const App = () => {
         }
       });
 
-      // 画面外でも死なないように余裕を持たせる
-      if (birdY.current > canvas.height + 50 || birdY.current < -100) setGameActive(false);
+      // 画面から消えないように上下の制限を緩く
+      if (birdY.current > canvas.height + 100 || birdY.current < -150) setGameActive(false);
       if (pipes.current[0]?.x < -PIPE_WIDTH) pipes.current.shift();
       frame.current++;
     };
 
     const draw = () => {
-      ctx.fillStyle = '#E0FFFF'; // さらに優しい空の色
+      // 背景
+      ctx.fillStyle = '#F0F8FF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // 背景の雲（お散歩感を出す）
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.beginPath();
-      ctx.arc(100, 80, 20, 0, Math.PI * 2);
-      ctx.arc(120, 80, 25, 0, Math.PI * 2);
-      ctx.arc(140, 80, 20, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 土管
-      ctx.fillStyle = '#98FB98';
-      ctx.strokeStyle = '#3CB371';
+      // 土管（パステルグリーンで優しく）
+      ctx.fillStyle = '#B0E57C';
+      ctx.strokeStyle = '#77A64B';
       ctx.lineWidth = 2;
       pipes.current.forEach((pipe) => {
         ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
@@ -150,26 +146,26 @@ const App = () => {
 
   return (
     <div onMouseDown={jump} style={{ 
-      textAlign: 'center', backgroundColor: '#444', minHeight: '100vh', color: 'white', 
+      textAlign: 'center', backgroundColor: '#F0F8FF', minHeight: '100vh', color: '#333', 
       fontFamily: 'sans-serif', userSelect: 'none', touchAction: 'none'
     }}>
-      <h2 style={{ paddingTop: '20px', margin: 0 }}>インコののんびり散歩</h2>
-      <p style={{ margin: '5px' }}>ハイスコア: {highScore} / スコア: {score}</p>
+      <h2 style={{ paddingTop: '20px' }}>インコのらくらく空中散歩</h2>
+      <p>ハイスコア: {highScore} / 今のスコア: {score}</p>
       
       <div style={{ position: 'relative', display: 'inline-block' }}>
-        <canvas ref={canvasRef} width="360" height="480" style={{ border: '8px solid #87CEEB', borderRadius: '20px', background: '#fff' }} />
+        <canvas ref={canvasRef} width="360" height="480" style={{ border: '10px solid #FFF', borderRadius: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', background: '#fff' }} />
         {!gameActive && (
           <div style={{ 
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', 
-            background: 'rgba(255,255,255,0.95)', color: '#333', padding: '20px', borderRadius: '15px',
-            boxShadow: '0 0 20px rgba(0,0,0,0.3)', width: '220px'
+            background: 'white', padding: '30px', borderRadius: '20px',
+            boxShadow: '0 5px 15px rgba(0,0,0,0.2)', width: '240px'
           }}>
-            <h3 style={{ margin: '0 0 10px 0' }}>またあそぼう！</h3>
-            <button style={{ padding: '10px 30px', fontSize: '18px', borderRadius: '25px', border: 'none', background: '#4af14a', color: 'white', cursor: 'pointer' }}>スタート</button>
+            <h3 style={{ margin: '0 0 15px 0' }}>また遊ぼうね！</h3>
+            <button style={{ padding: '12px 40px', fontSize: '20px', borderRadius: '30px', border: 'none', background: '#4af14a', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>スタート</button>
           </div>
         )}
       </div>
-      <p style={{ padding: '10px', fontSize: '14px' }}>何もしなくてもふわふわ進むよ。<br/>タップすると少しだけ高く飛ぶよ！</p>
+      <p style={{ marginTop: '20px' }}>何もしなくても、ずっと浮いて進むよ。安心してね。</p>
     </div>
   );
 };
