@@ -35,6 +35,7 @@ const App = () => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       keysPressed.current[e.code] = true;
+      // スペースかエンターでスタート
       if (!gameActive && (e.code === 'Space' || e.code === 'Enter')) startGame();
     };
     const handleKeyUp = (e) => {
@@ -55,7 +56,7 @@ const App = () => {
     const ctx = canvas.getContext('2d');
 
     const update = () => {
-      // --- 上下キーによる移動ロジック ---
+      // --- 上下キーによる移動（重力なし） ---
       if (keysPressed.current['ArrowUp']) {
         birdY.current -= MOVE_SPEED;
       }
@@ -63,7 +64,7 @@ const App = () => {
         birdY.current += MOVE_SPEED;
       }
 
-      // 画面端の制限（はみ出さないように）
+      // 画面端の制限
       if (birdY.current < 0) birdY.current = 0;
       if (birdY.current > canvas.height - BIRD_HEIGHT) birdY.current = canvas.height - BIRD_HEIGHT;
 
@@ -95,6 +96,7 @@ const App = () => {
       // ごはんの移動と獲得
       items.current.forEach((item) => {
         item.x -= PIPE_SPEED;
+        // インコがごはんに触れた判定
         if (!item.collected && 
             Math.abs(50 - item.x) < 25 && 
             Math.abs(birdY.current - item.y) < 25) {
@@ -113,6 +115,7 @@ const App = () => {
     };
 
     const draw = () => {
+      // 背景
       ctx.fillStyle = '#F0F8FF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -133,7 +136,7 @@ const App = () => {
         }
       });
 
-      // インコ
+      // インコ（セキセイインコ風）
       const bx = 50;
       const by = birdY.current;
       ctx.fillStyle = '#4af14a';
@@ -160,7 +163,7 @@ const App = () => {
       fontFamily: 'sans-serif', userSelect: 'none', touchAction: 'none'
     }}>
       <h2 style={{ paddingTop: '20px' }}>インコの「ごはん」あつめ</h2>
-      <p>ハイスコア: {highScore} / スコア: {score}</p>
+      <p>ハイスコア: {highScore} / ポイント: {score}</p>
       
       <div style={{ position: 'relative', display: 'inline-block' }}>
         <canvas ref={canvasRef} width="360" height="480" style={{ border: '10px solid #FFF', borderRadius: '30px', background: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }} />
@@ -172,8 +175,8 @@ const App = () => {
         )}
       </div>
       <div style={{ marginTop: '20px' }}>
-        <p>キーボードの <b>↑ ↓ ボタン</b> で、インコをうごかせるよ！</p>
-        <p style={{ fontSize: '14px', color: '#888' }}>ごはんを食べてもスピードは変わらないよ。安心してね。</p>
+        <p>キーボードの <b>↑ ↓ ボタン</b> で移動できるよ！</p>
+        <p style={{ fontSize: '14px', color: '#888' }}>ごはんを食べてもスピードは変わらないから、安心してね。</p>
       </div>
     </div>
   );
